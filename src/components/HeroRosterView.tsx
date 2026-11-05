@@ -9,6 +9,7 @@ import {
 } from '../types/game';
 import { HERO_CATALOG, getHeroDefinition } from '../data/heroes';
 import { calculateActiveSynergies } from '../utils/battleEngine';
+import { optimizePartyFormation } from '../utils/formationOptimizer';
 import { sound } from '../utils/audio';
 import {
   Star,
@@ -19,6 +20,7 @@ import {
   Sparkles,
   ArrowUpCircle,
   X,
+  Wand2,
 } from 'lucide-react';
 
 interface HeroRosterViewProps {
@@ -44,6 +46,7 @@ export const HeroRosterView: React.FC<HeroRosterViewProps> = ({
   const [filterOrigin, setFilterOrigin] = useState<string>('All');
   const [filterRole, setFilterRole] = useState<string>('All');
   const [slottingPosition, setSlottingPosition] = useState<GridPosition | null>(null);
+  const [optimizeFeedback, setOptimizeFeedback] = useState<string | null>(null);
 
   const { activeOrigins, activeRoles } = calculateActiveSynergies(formation, heroes);
 
@@ -83,23 +86,47 @@ export const HeroRosterView: React.FC<HeroRosterViewProps> = ({
     onUpdateFormation(newFormation);
   };
 
+  // Optimize formation: calculates highest power & synergy combination and maps to optimal rows
+  const handleOptimize = () => {
+    const result = optimizePartyFormation(heroes);
+    if (result.teamHeroIds.length === 0) return;
+
+    sound.playVictory();
+    onUpdateFormation(result.formation);
+    setOptimizeFeedback('Formation auto-optimized for maximum synergies, row advantages, and combat power!');
+    setTimeout(() => setOptimizeFeedback(null), 4000);
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 flex flex-col gap-8">
       
       {/* Section 1: Tactical Grid Formation Manager */}
-      <div className="bg-[#0b0f19] border border-slate-800/80 rounded-2xl p-6 shadow-xl flex flex-col gap-6">
+      <div className="bg-[#0b0f19] border border-slate-800/80 rounded-2xl p-6 shadow-xl flex flex-col gap-5">
         
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <h2 className="font-display text-xl md:text-2xl font-bold text-white flex items-center gap-2">
-              <Shield className="w-5 h-5 text-cyan-400" />
-              <span>5-Hero Tactical Grid Formation</span>
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <div className="flex items-center gap-3">
+              <h2 className="font-display text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                <Shield className="w-5 h-5 text-cyan-400" />
+                <span>5-Hero Tactical Grid Formation</span>
+              </h2>
+
+              {/* Optimize Formation Button */}
+              <button
+                onClick={handleOptimize}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-all shadow-md shadow-cyan-950/60 whitespace-nowrap shrink-0 cursor-pointer active:scale-95"
+                title="Automatically select the best 5 heroes and slot them into their optimal tactical grid positions"
+              >
+                <Wand2 className="w-3.5 h-3.5" />
+                <span>Optimize Formation</span>
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
               Position your champions to activate row bonuses and synergy advantages in battle.
             </p>
           </div>
 
+          {/* Active Synergies Badges */}
           <div className="flex flex-wrap items-center gap-2 text-xs">
             {activeOrigins.map((s) => (
               <span
@@ -121,6 +148,22 @@ export const HeroRosterView: React.FC<HeroRosterViewProps> = ({
             ))}
           </div>
         </div>
+
+        {/* Optimize Feedback Toast */}
+        {optimizeFeedback && (
+          <div className="p-3 rounded-xl bg-cyan-950/70 border border-cyan-700/60 text-xs text-cyan-200 flex items-center justify-between gap-3 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+              <span className="font-medium">{optimizeFeedback}</span>
+            </div>
+            <button
+              onClick={() => setOptimizeFeedback(null)}
+              className="text-cyan-400 hover:text-white p-0.5 rounded transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* 3-Row Grid Formation Board */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-950/60 p-4 rounded-xl border border-slate-800/60">
