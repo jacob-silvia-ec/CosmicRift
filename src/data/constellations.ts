@@ -1,0 +1,95 @@
+import { ConstellationNode } from '../types/game';
+
+export const CONSTELLATION_NODES: ConstellationNode[] = [
+  {
+    id: 'stellar-vigor',
+    name: 'Stellar Vigor',
+    description: 'Increases permanent base HP for all unlocked heroes.',
+    tier: 1,
+    icon: '✨',
+    currentLevel: 0,
+    maxLevel: 25,
+    baseCost: 10,
+    costMultiplier: 1.35,
+    statKey: 'hp',
+    valuePerLevel: 5, // +5% HP per level
+  },
+  {
+    id: 'cosmic-force',
+    name: 'Cosmic Force',
+    description: 'Permanently increases base ATK damage across all dimensions.',
+    tier: 1,
+    icon: '⚔️',
+    currentLevel: 0,
+    maxLevel: 25,
+    baseCost: 15,
+    costMultiplier: 1.35,
+    statKey: 'atk',
+    valuePerLevel: 4, // +4% ATK per level
+  },
+  {
+    id: 'nebula-shield',
+    name: 'Nebula Shell',
+    description: 'Fortifies all heroes with permanent base DEF and damage reduction.',
+    tier: 1,
+    icon: '🛡️',
+    currentLevel: 0,
+    maxLevel: 20,
+    baseCost: 12,
+    costMultiplier: 1.3,
+    statKey: 'def',
+    valuePerLevel: 3, // +3% DEF per level
+  },
+  {
+    id: 'golden-aurora',
+    name: 'Golden Aurora',
+    description: 'Increases gold dropped by dimensional rift monsters.',
+    tier: 2,
+    icon: '🪙',
+    currentLevel: 0,
+    maxLevel: 20,
+    baseCost: 20,
+    costMultiplier: 1.4,
+    statKey: 'goldRate',
+    valuePerLevel: 8, // +8% Gold drop rate per level
+  },
+  {
+    id: 'celestial-sight',
+    name: 'Supernova Gaze',
+    description: 'Permanent team Critical Strike Chance bonus.',
+    tier: 2,
+    icon: '🔮',
+    currentLevel: 0,
+    maxLevel: 15,
+    baseCost: 35,
+    costMultiplier: 1.45,
+    statKey: 'critRate',
+    valuePerLevel: 1.5, // +1.5% Crit Chance per level
+  },
+  {
+    id: 'time-dilation',
+    name: 'Time Dilation Chamber',
+    description: 'Extends maximum offline AFK accumulation time and reward rate.',
+    tier: 3,
+    icon: '⏳',
+    currentLevel: 0,
+    maxLevel: 10,
+    baseCost: 50,
+    costMultiplier: 1.5,
+    statKey: 'afkCapacity',
+    valuePerLevel: 10, // +10% AFK rewards & +1 hour cap per 2 levels
+  },
+  {
+    id: 'astral-resonance',
+    name: 'Astral Mana Resonance',
+    description: 'Accelerates base Energy/Mana generation during battle.',
+    tier: 3,
+    icon: '💫',
+    currentLevel: 0,
+    maxLevel: 10,
+    baseCost: 60,
+    costMultiplier: 1.55,
+    statKey: 'manaRegen',
+    valuePerLevel: 5, // +5% Mana regen per level
+  },
+];

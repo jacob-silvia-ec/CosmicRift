@@ -1,0 +1,6 @@
+{
+  "name": "Cosmic Rift: Multiverse Idle Battler",
+  "description": "Incremental idle RPG featuring a 5-hero tactical grid, auto-battler mechanics with manual/auto ultimate toggles, Vampire Survivors-style perk drafting, persistent meta-upgrades, and earnable gacha summoning.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
