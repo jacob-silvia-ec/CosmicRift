@@ -83,14 +83,19 @@ export function createFriendlyCombatants(
   let boonHpPercent = 0;
   let boonAtkPercent = 0;
   let boonCritRate = 0;
+  let boonCritDmg = 0;
   let boonSpdPercent = 0;
 
   Object.entries(activeBoons).forEach(([boonId, lvl]) => {
     if (boonId === 'titans-might') boonAtkPercent += lvl * 20;
     if (boonId === 'hyper-vitality') boonHpPercent += lvl * 25;
-    if (boonId === 'stellar-precision') boonCritRate += lvl * 0.15;
+    if (boonId === 'stellar-precision') {
+      boonCritRate += lvl * 0.15;
+      boonCritDmg += lvl * 0.30;
+    }
     if (boonId === 'chrono-haste') boonSpdPercent += lvl * 20;
     if (boonId === 'overcharge-capacitor') boonSpdPercent += lvl * 10;
+    if (boonId === 'phoenix-blessing') boonHpPercent += lvl * 15;
   });
 
   // Collect synergy bonuses
@@ -162,7 +167,7 @@ export function createFriendlyCombatants(
       0.85,
       def.baseStats.critRate + constellationCritBonus + boonCritRate + synergyCritRate
     );
-    const critDmg = def.baseStats.critDmg + rowCritDmgBonus;
+    const critDmg = def.baseStats.critDmg + rowCritDmgBonus + boonCritDmg;
 
     const initialShield = Math.round((maxHp * initialShieldPercent) / 100);
 

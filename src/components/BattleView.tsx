@@ -14,7 +14,7 @@ import {
   calculateActiveSynergies,
 } from '../utils/battleEngine';
 import { getHeroDefinition } from '../data/heroes';
-import { getRandomBoonChoices } from '../data/boons';
+import { getRandomBoonChoices, IN_RUN_BOONS_POOL } from '../data/boons';
 import { sound } from '../utils/audio';
 import { BoonDraftModal } from './BoonDraftModal';
 import {
@@ -82,6 +82,9 @@ export const BattleView: React.FC<BattleViewProps> = ({
   const isLoopRunning = useRef<boolean>(true);
   const stageRef = useRef(riftStage);
   stageRef.current = riftStage;
+  const phoenixRevivesUsedRef = useRef<number>(0);
+  const orbitalTimerRef = useRef<number>(0);
+  const singularityTimerRef = useRef<number>(0);
 
   // Synergies summary
   const { activeOrigins, activeRoles } = calculateActiveSynergies(formation, heroes);
@@ -113,16 +116,34 @@ export const BattleView: React.FC<BattleViewProps> = ({
 
     friendlyRef.current = friendlies;
     enemyRef.current = enemies;
+    phoenixRevivesUsedRef.current = 0;
+    orbitalTimerRef.current = 0;
+    singularityTimerRef.current = 0;
     setFriendlyTeam(friendlies);
     setEnemyTeam(enemies);
     setBattleOutcome('none');
     setFloatingTexts([]);
-  }, [formation, heroes, activeBoons, constellations, riftStage]);
+  }, [formation, heroes, constellations, riftStage]);
 
   // Trigger init on stage or formation change
   useEffect(() => {
     initBattle();
   }, [initBattle]);
+
+  // Dynamically update friendly stats when new in-run boons are drafted without resetting enemy wave
+  useEffect(() => {
+    if (friendlyRef.current.length === 0) return;
+    const fresh = createFriendlyCombatants(formation, heroes, activeBoons, constellations);
+    friendlyRef.current.forEach((hero) => {
+      const match = fresh.find((f) => f.instanceId === hero.instanceId);
+      if (match) {
+        const hpRatio = hero.stats.maxHp > 0 ? hero.currentHp / hero.stats.maxHp : 1;
+        hero.stats = match.stats;
+        hero.currentHp = Math.min(match.stats.maxHp, Math.max(1, Math.round(match.stats.maxHp * hpRatio)));
+      }
+    });
+    setFriendlyTeam([...friendlyRef.current]);
+  }, [activeBoons]);
 
   // Cast an ultimate skill manually or automatically
   const castUltimate = useCallback(
@@ -151,13 +172,21 @@ export const BattleView: React.FC<BattleViewProps> = ({
       // Execute ultimate mechanics
       if (ult.type === 'aoe') {
         const damage = Math.round(hero.stats.atk * ult.multiplier);
+        let totalDamage = 0;
         enemyRef.current.forEach((enemy) => {
           if (enemy.currentHp > 0) {
             const actualDamage = Math.max(1, damage - enemy.stats.def * 0.35);
             enemy.currentHp = Math.max(0, enemy.currentHp - actualDamage);
+            totalDamage += actualDamage;
             addFloatingText(`-${Math.round(actualDamage)}`, 75, 45 + Math.random() * 20, '#f87171');
           }
         });
+        if (activeBoons['vampiric-drain']) {
+          const stealPercent = activeBoons['vampiric-drain'] * 12;
+          const heal = Math.round((totalDamage * stealPercent) / 100);
+          hero.currentHp = Math.min(hero.stats.maxHp, hero.currentHp + heal);
+          addFloatingText(`+${heal}`, 25, 45, '#34d399');
+        }
       } else if (ult.type === 'heal' || ult.type === 'shield') {
         const healAmt = Math.round(hero.stats.atk * ult.multiplier);
         friendlyRef.current.forEach((ally) => {
@@ -177,13 +206,19 @@ export const BattleView: React.FC<BattleViewProps> = ({
           const damage = Math.round(hero.stats.atk * ult.multiplier * hero.stats.critDmg);
           target.currentHp = Math.max(0, target.currentHp - damage);
           addFloatingText(`CRIT! -${damage}`, 75, 45, '#fbbf24', true);
+          if (activeBoons['vampiric-drain']) {
+            const stealPercent = activeBoons['vampiric-drain'] * 12;
+            const heal = Math.round((damage * stealPercent) / 100);
+            hero.currentHp = Math.min(hero.stats.maxHp, hero.currentHp + heal);
+            addFloatingText(`+${heal}`, 25, 45, '#34d399');
+          }
         }
       }
 
       setFriendlyTeam([...friendlyRef.current]);
       setEnemyTeam([...enemyRef.current]);
     },
-    [addFloatingText, onQuestProgress]
+    [addFloatingText, onQuestProgress, activeBoons]
   );
 
   // Main combat tick loop
@@ -207,11 +242,25 @@ export const BattleView: React.FC<BattleViewProps> = ({
         setBattleOutcome('victory');
         onQuestProgress('waves', 1);
 
-        // Calculate stage rewards
+        // Radiant Aegis boon: restore team HP on wave milestone
+        const aegisLvl = activeBoons['radiant-aegis'] || 0;
+        if (aegisLvl > 0) {
+          friends.forEach((f) => {
+            if (f.currentHp > 0) {
+              const heal = Math.round(f.stats.maxHp * (0.25 * aegisLvl));
+              f.currentHp = Math.min(f.stats.maxHp, f.currentHp + heal);
+              addFloatingText(`🛡️ +${heal}`, 25, 45, '#34d399');
+            }
+          });
+        }
+
+        // Calculate stage rewards with Cosmic Midas multiplier
         const isBoss = riftStage % 5 === 0;
+        const midasLvl = activeBoons['cosmic-midas'] || 0;
+        const midasMult = 1 + midasLvl * 0.35;
         const rewards = {
-          gold: Math.round(150 + riftStage * 65 * (isBoss ? 2.5 : 1)),
-          shards: isBoss ? 60 : 15,
+          gold: Math.round(Math.round(150 + riftStage * 65 * (isBoss ? 2.5 : 1)) * midasMult),
+          shards: Math.round((isBoss ? 60 : 15) * midasMult),
           relics: isBoss ? Math.floor(riftStage / 5) + 1 : 0,
         };
 
@@ -241,6 +290,36 @@ export const BattleView: React.FC<BattleViewProps> = ({
       }
 
       const tickDelta = (combatSpeed * 10) / 2; // Speed multiplier scaling
+
+      // Orbital Stars Boon: periodic revolving cosmic damage
+      const orbitalLvl = activeBoons['orbital-stars'] || 0;
+      if (orbitalLvl > 0 && livingEnemies.length > 0) {
+        orbitalTimerRef.current += tickDelta;
+        if (orbitalTimerRef.current >= 30) {
+          orbitalTimerRef.current = 0;
+          const orbDmg = orbitalLvl * 35;
+          livingEnemies.forEach((e) => {
+            e.currentHp = Math.max(0, e.currentHp - orbDmg);
+            addFloatingText(`💫 -${orbDmg}`, 75, 40 + Math.random() * 20, '#38bdf8');
+          });
+          sound.playHit(true);
+        }
+      }
+
+      // Void Singularity Boon: periodic gravity pulse every 8s
+      const singularityLvl = activeBoons['singularity-burst'] || 0;
+      if (singularityLvl > 0 && livingEnemies.length > 0) {
+        singularityTimerRef.current += tickDelta;
+        if (singularityTimerRef.current >= 80) {
+          singularityTimerRef.current = 0;
+          const singDmg = singularityLvl * 120;
+          livingEnemies.forEach((e) => {
+            e.currentHp = Math.max(0, e.currentHp - singDmg);
+            addFloatingText(`🌀 -${singDmg}`, 75, 45, '#c084fc', true);
+          });
+          sound.playHit(true);
+        }
+      }
 
       // Advance Friendlies
       friends.forEach((hero) => {
@@ -280,15 +359,29 @@ export const BattleView: React.FC<BattleViewProps> = ({
             target.currentHp = Math.max(0, target.currentHp - netDamage);
           }
 
-          // Lifesteal check
+          // Chain Lightning Boon
+          const chainLvl = activeBoons['chain-lightning'] || 0;
+          if (chainLvl > 0 && Math.random() < 0.30 + chainLvl * 0.05) {
+            const otherEnemies = enemies.filter((e) => e.currentHp > 0 && e.instanceId !== target.instanceId);
+            const chainTargets = otherEnemies.slice(0, 2);
+            const chainDmg = Math.round(netDamage * 0.55);
+            chainTargets.forEach((ct) => {
+              ct.currentHp = Math.max(0, ct.currentHp - chainDmg);
+              addFloatingText(`⚡ -${chainDmg}`, 75, 45 + Math.random() * 15, '#facc15');
+            });
+          }
+
+          // Lifesteal check (Vampiric Drain)
           if (activeBoons['vampiric-drain']) {
             const stealPercent = activeBoons['vampiric-drain'] * 12;
             const heal = Math.round((netDamage * stealPercent) / 100);
             hero.currentHp = Math.min(hero.stats.maxHp, hero.currentHp + heal);
           }
 
-          // Mana gain
-          hero.currentMana = Math.min(100, hero.currentMana + 22);
+          // Overcharge Capacitor Mana gain (+35% per lvl)
+          const overchargeLvl = activeBoons['overcharge-capacitor'] || 0;
+          const manaGain = Math.round(22 * (1 + overchargeLvl * 0.35));
+          hero.currentMana = Math.min(100, hero.currentMana + manaGain);
 
           // SFX & Floating Text
           if (isCrit) {
@@ -325,6 +418,18 @@ export const BattleView: React.FC<BattleViewProps> = ({
             }
           } else {
             target.currentHp = Math.max(0, target.currentHp - netDamage);
+          }
+
+          // Phoenix Feather Revive Check
+          if (target.currentHp <= 0) {
+            const phoenixLvl = activeBoons['phoenix-blessing'] || 0;
+            if (phoenixLvl > phoenixRevivesUsedRef.current) {
+              phoenixRevivesUsedRef.current += 1;
+              const reviveHp = Math.round(target.stats.maxHp * 0.5);
+              target.currentHp = reviveHp;
+              sound.playHeal();
+              addFloatingText(`🪶 PHOENIX REVIVAL! +${reviveHp}`, 25, 40, '#f59e0b', true);
+            }
           }
 
           target.currentMana = Math.min(100, target.currentMana + 14);
@@ -626,17 +731,23 @@ export const BattleView: React.FC<BattleViewProps> = ({
 
         {/* Active In-Run Boons Bar */}
         {Object.keys(activeBoons).length > 0 && (
-          <div className="mt-6 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-4 text-xs">
-            <div className="text-slate-400 font-medium">Active In-Run Boons:</div>
+          <div className="mt-6 pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="text-slate-400 font-medium shrink-0">Active In-Run Boons:</div>
             <div className="flex flex-wrap items-center gap-2">
-              {Object.entries(activeBoons).map(([boonId, lvl]) => (
-                <span
-                  key={boonId}
-                  className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-mono text-[11px]"
-                >
-                  {boonId} Lvl {lvl}
-                </span>
-              ))}
+              {Object.entries(activeBoons).map(([boonId, lvl]) => {
+                const boonDef = IN_RUN_BOONS_POOL.find((b) => b.id === boonId);
+                return (
+                  <span
+                    key={boonId}
+                    className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700/80 text-slate-200 text-[11px] font-semibold flex items-center gap-1.5 shadow-sm"
+                    title={boonDef?.description || ''}
+                  >
+                    <span>{boonDef?.icon || '✨'}</span>
+                    <span>{boonDef?.name || boonId}</span>
+                    <span className="font-mono text-amber-400 font-bold">Lvl {lvl}</span>
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}
