@@ -239,6 +239,7 @@ export const HeroRosterView: React.FC<HeroRosterViewProps> = ({
             const heroState = heroes[hero.id];
             const isUnlocked = !!heroState;
             const isAssigned = Object.values(formation).includes(hero.id);
+            const canAscend = isUnlocked && heroState.duplicates >= 1 && heroState.stars < 5;
 
             return (
               <div
@@ -253,18 +254,31 @@ export const HeroRosterView: React.FC<HeroRosterViewProps> = ({
                 }}
                 className={`group relative p-3.5 rounded-xl border flex flex-col justify-between transition-all duration-150 cursor-pointer ${
                   isUnlocked
-                    ? 'bg-slate-900/90 border-slate-800 hover:border-cyan-500/60 hover:shadow-lg'
+                    ? canAscend
+                      ? 'bg-slate-900/95 border-amber-500/60 ring-1 ring-amber-400/50 shadow-md shadow-amber-950/40 hover:border-amber-400 hover:shadow-lg'
+                      : 'bg-slate-900/90 border-slate-800 hover:border-cyan-500/60 hover:shadow-lg'
                     : 'bg-slate-950/60 border-slate-900 opacity-40 grayscale'
-                } ${isAssigned ? 'ring-1 ring-amber-500/50' : ''}`}
+                } ${isAssigned && !canAscend ? 'ring-1 ring-amber-500/50' : ''}`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-3xl">{hero.avatarIcon}</span>
-                    {isAssigned && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800">
-                        In Team
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {canAscend && (
+                        <span
+                          className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm shadow-amber-950/60 animate-pulse whitespace-nowrap"
+                          title={`${heroState.duplicates} Ascension Essence available! Ready to ascend star rank.`}
+                        >
+                          <Sparkles className="w-2.5 h-2.5 text-amber-300" />
+                          <span>★ Ascend</span>
+                        </span>
+                      )}
+                      {isAssigned && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 whitespace-nowrap">
+                          In Team
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <h4 className="font-display text-sm font-bold text-white group-hover:text-cyan-300 transition-colors truncate">
@@ -279,10 +293,20 @@ export const HeroRosterView: React.FC<HeroRosterViewProps> = ({
                   {isUnlocked ? (
                     <>
                       <span className="text-cyan-400 font-semibold">Lvl {heroState.level}</span>
-                      <div className="flex items-center text-amber-400">
-                        {Array.from({ length: heroState.stars }).map((_, i) => (
-                          <span key={i}>★</span>
-                        ))}
+                      <div className="flex items-center gap-1">
+                        <div className="flex items-center text-amber-400">
+                          {Array.from({ length: heroState.stars }).map((_, i) => (
+                            <span key={i}>★</span>
+                          ))}
+                        </div>
+                        {canAscend && (
+                          <span
+                            className="text-[10px] font-bold font-sans px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse"
+                            title={`${heroState.duplicates} unapplied ascension essence`}
+                          >
+                            +{heroState.duplicates}
+                          </span>
+                        )}
                       </div>
                     </>
                   ) : (
@@ -460,6 +484,7 @@ export const HeroRosterView: React.FC<HeroRosterViewProps> = ({
     const heroId = formation[pos];
     const heroDef = heroId ? getHeroDefinition(heroId) : null;
     const heroState = heroId ? heroes[heroId] : null;
+    const slotCanAscend = heroState && heroState.duplicates >= 1 && heroState.stars < 5;
 
     return (
       <div
@@ -469,15 +494,22 @@ export const HeroRosterView: React.FC<HeroRosterViewProps> = ({
         }}
         className={`p-3.5 rounded-xl border flex items-center justify-between transition-all duration-150 cursor-pointer ${
           heroDef
-            ? 'bg-slate-900 border-slate-700 hover:border-cyan-400 shadow-md'
+            ? slotCanAscend
+              ? 'bg-slate-900 border-amber-500/60 ring-1 ring-amber-400/40 hover:border-amber-400 shadow-md'
+              : 'bg-slate-900 border-slate-700 hover:border-cyan-400 shadow-md'
             : 'bg-slate-900/40 border-dashed border-slate-800 hover:border-slate-600'
         } ${slottingPosition === pos ? 'ring-2 ring-cyan-400' : ''}`}
       >
         <div className="flex items-center gap-3">
           <span className="text-3xl">{heroDef ? heroDef.avatarIcon : '➕'}</span>
           <div>
-            <div className="text-xs font-bold text-white">
-              {heroDef ? heroDef.name : 'Empty Slot'}
+            <div className="text-xs font-bold text-white flex items-center gap-2">
+              <span>{heroDef ? heroDef.name : 'Empty Slot'}</span>
+              {slotCanAscend && (
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+                  ★ Ascend
+                </span>
+              )}
             </div>
             <div className="text-[10px] text-slate-400">
               {heroDef ? `${heroDef.role} · Lvl ${heroState?.level || 1}` : subtitle}
